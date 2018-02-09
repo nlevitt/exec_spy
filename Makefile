@@ -1,4 +1,4 @@
-obj-m += akkt.o
+obj-m += exec_spy.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

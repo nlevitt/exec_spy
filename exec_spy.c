@@ -52,7 +52,7 @@ asmlinkage int wrap_execve (const char *filename,
 	if (IS_ERR(cwd_path_str))
 		cwd_path_str = "<error>";
 
-	pr_info("akkt.c: execve pid=%d uid=%d cwd=%s exe=%s "
+	pr_info("exec_spy.c: execve pid=%d uid=%d cwd=%s exe=%s "
 		":: %s\n",
 		current->pid, __kuid_val(current_uid()), cwd_path_str,
 		filename, argv_buf);
@@ -64,7 +64,7 @@ asmlinkage int wrap_execve (const char *filename,
 	/*
 	   result = orig_execve(filename, argv, envp);
 
-	   pr_info("akkt.c: execve returned %d\n", result);
+	   pr_info("exec-spy.c: execve returned %d\n", result);
 
 	   return result;
 	   */
@@ -88,9 +88,9 @@ static unsigned long **aquire_sys_call_table(void)
 	return NULL;
 }
 
-static int __init akkt_init(void)
+static int __init exec_spy_init(void)
 {
-	pr_info("akkt.c: loading\n");
+	pr_info("exec_spy.c: loading\n");
 	if(!(sys_call_table = aquire_sys_call_table()))
 		return -1;
 
@@ -105,18 +105,18 @@ static int __init akkt_init(void)
 	// re-enable syscall table page protection
 	write_cr0(original_cr0);
 
-	pr_info("akkt.c: loaded: now logging calls to execve\n");
+	pr_info("exec_spy.c: loaded: now logging calls to execve\n");
 
 	return 0;
 }
 
-static void __exit akkt_exit(void)
+static void __exit exec_spy_exit(void)
 {
 	if(!sys_call_table) {
-		pr_info("akkt.c: sys_call_table unset?\n");
+		pr_info("exec_spy.c: sys_call_table unset?\n");
 		return;
 	}
-	pr_info("akkt.c: unloading\n");
+	pr_info("exec_spy.c: unloading\n");
 
 	// put the original execve back in place
 	if (sys_call_table[__NR_execve] != (unsigned long *)wrap_execve) {
@@ -128,12 +128,12 @@ static void __exit akkt_exit(void)
 	sys_call_table[__NR_execve] = (unsigned long *)orig_execve;
 	write_cr0(original_cr0);
 
-	pr_info("akkt.c: unloaded\n");
+	pr_info("exec_spy.c: unloaded\n");
 
 	msleep(2000); // XXX why?
 }
 
-module_init(akkt_init);
-module_exit(akkt_exit);
+module_init(exec_spy_init);
+module_exit(exec_spy_exit);
 
 MODULE_LICENSE("GPL");
