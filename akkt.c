@@ -1,9 +1,11 @@
-/* Intercepts execve() syscall and logs info.
+/*
+ * Wraps execve() syscall to log info each time it's called.
  *
- * Disables page protection at a processor level by changing the 16th bit in
- * the cr0 register (could be Intel specific)
+ * Messes with the syscall table in a way that may be architecture and kernel
+ * version specific. Developed on ubuntu artful 4.13.0-32-generic.
  *
- * Based on https://github.com/bashrc/LKMPG/blob/d694ae7/4.14.8/examples/syscall.c
+ * Based on
+ * https://github.com/bashrc/LKMPG/blob/d694ae7/4.14.8/examples/syscall.c
  * which is in turn based on example by Peter Jay Salzman and
  * https://bbs.archlinux.org/viewtopic.php?id=139406
  */
@@ -22,43 +24,14 @@ unsigned long original_cr0;
 asmlinkage int (*orig_execve) (const char *, char *const [], char *const []);
 
 asmlinkage int wrap_execve (const char *filename,
-		char *const argv[],
-		char *const envp[])
+			    char *const argv[],
+			    char *const envp[])
 {
 	int buflen, i;
 	char *argv_buf, *p;
 	struct path cwd_struct;
 	char *cwd_buf, *cwd_path_str;
 	// int result;
-	/*
-struct path {
-	struct vfsmount *mnt;
-	struct dentry *dentry;
-} __randomize_layout;
-
-char * d_path (const struct path * path, char *buf, int buflen);
-
-Convert a dentry into an ASCII path name. If the entry has been deleted the string “ (deleted)” is appended. Note that this is ambiguous.
-
-Returns a pointer into the buffer or an error code if the path was too long. Note: Callers should use the returned pointer, not the passed in buffer, to use the name! The implementation often starts at an offset into the buffer, and may leave 0 bytes at the start.
-
-    char *tmp = (char*)__get_free_page(GFP_TEMPORARY);
-
-    file *file = fget(dfd);
-    if (!file) {
-        goto out
-    }
-
-    char *path = d_path(&file->f_path, tmp, PAGE_SIZE);
-    if (IS_ERR(path)) {
-        printk("error: %d\n", (int)path);
-        goto out;
-    }
-
-    printk("path: %s\n", path);
-out:
-    free_page((unsigned long)tmp);
-*/
 
 	buflen = 0;
 	for (i = 0; argv[i]; i++) {
@@ -145,9 +118,7 @@ static void __exit akkt_exit(void)
 	}
 	pr_info("akkt.c: unloading\n");
 
-	/*
-	 * Return the system call back to normal
-	 */
+	// put the original execve back in place
 	if (sys_call_table[__NR_execve] != (unsigned long *)wrap_execve) {
 		pr_alert("Somebody else also played with the execve system call");
 		pr_alert("The system may be left in an unstable state.\n");
