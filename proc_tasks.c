@@ -29,14 +29,27 @@ static const struct file_operations proc_numtasks_fops = {
     .read  = seq_read,
 };
 
-static int print_tasks(struct seq_file *m, void *v) {
-    struct task_struct *p, *t;
-    for_each_process(p) {
-        seq_printf(m, "pid=%d tgid=%d %s\n", p->pid, p->tgid, p->comm);
-        for_each_thread(p, t)
-            seq_printf(m, " (thread) pid=%d tgid=%d %s\n",
-                       t->pid, t->tgid, t->comm);
+static void recurse(struct seq_file *m, struct task_struct *p, int depth) {
+    struct task_struct *th, *ch;
+    struct list_head *list;
+    int thread_count = 0;
+
+    seq_printf(m, "%*spid=%d tgid=%d %s\n", depth*2, "", p->pid, p->tgid, p->comm);
+    for_each_thread(p, th) {
+        if (thread_count > 0)
+            seq_printf(m, "%*s (thread) pid=%d tgid=%d ppid=%d %s\n",
+                       depth*2, "", th->pid, th->tgid, th->parent->pid, th->comm);
+        thread_count += 1;
     }
+
+    list_for_each(list, &p->children) {
+        ch = list_entry(list, struct task_struct, sibling);
+        recurse(m, ch, depth+1);
+    }
+}
+
+static int print_tasks(struct seq_file *m, void *v) {
+    recurse(m, &init_task, 0);
     return 0;
 }
 
